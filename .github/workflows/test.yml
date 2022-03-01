@@ -1,11 +1,8 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Test with pytest
 
-# Controls when the workflow will run
 on:
   push:
-    branches: 
+    branches:
     - '*'
   pull_request:
     branches: [ master ]
@@ -13,17 +10,16 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+jobs:
+  build:
+    runs-on: ubuntu-latest
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2.4.0
+      - name: Check out repo
+        uses: actions/checkout@v2.4.0
 
       - name: GitHub Action for pytest
         uses: cclauss/GitHub-Action-for-pytest@0.5.0
