@@ -17,6 +17,7 @@ import prometheus_client as prometheus
 from yamlreader import yaml_load
 import utils.prometheus_additions
 import version
+import threading
 
 VERSION = version.__version__
 SUFFIXES_PER_TYPE = {
@@ -27,6 +28,7 @@ SUFFIXES_PER_TYPE = {
     "histogram": ['sum', 'count', 'bucket'],
     "enum": [],
 }
+METRICS_LOCK = threading.Semaphore()
 
 
 def _read_config(config_path):
@@ -308,16 +310,33 @@ def _update_metrics(metrics, msg):
         _export_to_prometheus(
             derived_metric['name'], derived_metric, derived_labels)
 
+        if metric.get('expires'):
+            if metric.get('expiration_timer'):
+                metric.get('expiration_timer').cancel()
+                logging.debug(f"_update_metric Canceled existing timer for {metric.get('name')}")
+
+            metric['expiration_timer'] = threading.Timer(metric.get('expires'), _clear_metric, args=(metric, derived_metric))
+            metric['expiration_timer'].start()
+            logging.debug(f"_update_metric Set a {metric.get('expires')} second expiration timer for {metric.get('name')}")
+
+
+def _clear_metric(metric, derived_metric):
+    with METRICS_LOCK:
+        metric['prometheus_metric']['parent'].clear()
+        derived_metric['prometheus_metric']['parent'].clear()
+        logging.debug(f"_clear_metric cleared metric {metric.get('name')}")
+
 
 # noinspection PyUnusedLocal
 def _on_message(client, userdata, msg):
-    """The callback for when a PUBLISH message is received from the server."""
-    logging.debug(
-        f'_on_message Msg received on topic: {msg.topic}, Value: {str(msg.payload)}')
+    with METRICS_LOCK:
+        """The callback for when a PUBLISH message is received from the server."""
+        logging.debug(
+            f'_on_message Msg received on topic: {msg.topic}, Value: {str(msg.payload)}')
 
-    for topic in userdata.keys():
-        if _topic_matches(topic, msg.topic):
-            _update_metrics(userdata[topic], msg)
+        for topic in userdata.keys():
+            if _topic_matches(topic, msg.topic):
+                _update_metrics(userdata[topic], msg)
 
 
 def _mqtt_init(mqtt_config, metrics):
@@ -358,7 +377,7 @@ def _export_to_prometheus(name, metric, labels):
     valid_types = metric_wrappers.keys()
     if metric['type'] not in valid_types:
         logging.error(
-            f"Metric type: {metric['type']}, is not a valid metric type. Must be one of: {valid_types} - ingnoring"
+            f"Metric type: {metric['type']}, is not a valid metric type. Must be one of: {valid_types} - ignoring"
         )
         return
 
@@ -430,6 +449,10 @@ class GaugeWrapper():
         self.metric = prometheus.Gauge(
             name, help_text, list(label_names)
         )
+
+    def clear(self):
+        self.metric.clear()
+
     def update(self, label_values, value):
         child = self.metric.labels(*label_values)
         child.set(value)
@@ -446,15 +469,14 @@ class CounterWrapper():
             name, help_text, list(label_names)
         )
 
+    def clear(self):
+        self.metric.clear()
+
     def update(self, label_values, value):
         child = self.metric.labels(*label_values)
         child.inc(value)
         return child
 
-class HistogramWrapper():
-    """
-    Wrapper to provide generic interface to Summary metric
-    """
 
 class CounterAbsoluteWrapper():
     """
@@ -465,6 +487,9 @@ class CounterAbsoluteWrapper():
         self.metric = utils.prometheus_additions.CounterAbsolute(
             name, help_text, list(label_names)
         )
+
+    def clear(self):
+        self.metric.clear()
 
     def update(self, label_values, value):
         child = self.metric.labels(*label_values)
@@ -481,6 +506,9 @@ class SummaryWrapper():
         self.metric = prometheus.Summary(
             name, help_text, list(label_names)
         )
+
+    def clear(self):
+        self.metric.clear()
 
     def update(self, label_values, value):
         child = self.metric.labels(*label_values)
@@ -505,6 +533,9 @@ class HistogramWrapper():
             name, help_text, list(label_names), **params
         )
 
+    def clear(self):
+        self.metric.clear()
+
     def update(self, label_values, value):
         child = self.metric.labels(*label_values)
         child.observe(value)
@@ -520,6 +551,9 @@ class EnumWrapper():
         self.metric = prometheus.Enum(
             name, help_text, list(label_names), **params
         )
+
+    def clear(self):
+        self.metric.clear()
 
     def update(self, label_values, value):
         child = self.metric.labels(*label_values)
