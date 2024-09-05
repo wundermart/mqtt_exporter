@@ -48,7 +48,7 @@ def generateYaml2() {
 def dockerBuildAndPushTools() {
         container(name: 'kaniko') {
             // Image Tags
-            GIT_BRANCH_TAG = "gcr.io/wundermart-erp-devops/mqtt1"
+            GIT_BRANCH_TAG = "eu.gcr.io/custom-hold-271312/mqttV2"
             LATEST_TAG = "${GIT_BRANCH_TAG}:latest"
             echo 'Run Kaniko build'
             sh("""
@@ -59,7 +59,7 @@ def dockerBuildAndPushTools() {
                 --destination=$LATEST_TAG \
                 --cache=true \
                 --cache-ttl=24h \
-                --cache-repo=gcr.io/wundermart-erp-devops/mqtt1/cache \
+                --cache-repo=eu.gcr.io/custom-hold-271312/mqttV2/cache \
             """)
         }
 }
