@@ -95,7 +95,7 @@ pipeline {
         }
         stage('Submit Build') {
             parallel {
-                stage("gcp review cleanup image") {
+                stage("built mqtt") {
                     agent {
                             kubernetes {
                                 yaml generateYaml() //kaniko
@@ -118,7 +118,7 @@ pipeline {
             slackSend channel: 'notifications', color: 'danger', message: "mqtt images Docker image build regressed from success to failure!"
         }
         success {
-            slackSend channel: 'notifications', message: "mqtt images (review-cleanup and db-dump) built successfully."
+            slackSend channel: 'notifications', message: "mqtt images built successfully."
         }
     }
 }
