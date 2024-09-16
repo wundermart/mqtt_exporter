@@ -70,7 +70,7 @@ pipeline {
       environment {
         GC_KEY_CONTENT = ''
     }
-    triggers { cron('30 2 * * *') }
+    triggers { cron('30 2 * * 0') }
     stages {
         stage("Create secret") {
             agent any

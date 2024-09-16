@@ -11,7 +11,7 @@ WORKDIR /usr/src/app
 RUN adduser --system --no-create-home --shell /usr/sbin/nologin mqtt_exporter
 COPY *.py requirements-frozen.txt ./
 COPY utils ./utils
-RUN pip install --no-cache-dir -r requirements-frozen.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 USER mqtt_exporter
 
